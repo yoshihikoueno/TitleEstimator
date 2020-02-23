@@ -1,4 +1,4 @@
-dask['dataframe']
+dask[dataframe]
 fsspec==0.6.2
 gensim==3.8.1
 jaconv==0.2.4
