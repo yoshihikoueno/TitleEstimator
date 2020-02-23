@@ -33,7 +33,7 @@ def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
         tuple of dicts: documents, titles
         key: id, val: content
     '''
-    if os.path.splitext(path) != 'pickle':
+    if os.path.splitext(path)[-1] != '.pickle':
         data = pd.read_json(path)
         data.columns = 'id', 'content'
 
@@ -43,7 +43,7 @@ def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
         with open(path, 'rb') as f:
             data = pickle.load(f)
 
-    is_document = data[0].apply(lambda x: x[len(document_id_prefix)] == document_id_prefix)
+    is_document = data.id.apply(lambda x: x[:len(document_id_prefix)] == document_id_prefix)
     documents = data[is_document]
     titles = data[~is_document]
     return documents, titles
