@@ -27,17 +27,21 @@ def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
         path: path to the data file
         document_id_prefix: prefix of document ids
         apply_preprocess: whether this func should apply preprocess
+            this will ignored when path points to a pickle file
 
     Returns:
         tuple of dicts: documents, titles
         key: id, val: content
     '''
-    data = pd.read_json(path)
-    data.columns = 'id', 'content'
+    if os.path.splitext(path) != 'pickle':
+        data = pd.read_json(path)
+        data.columns = 'id', 'content'
 
-    if apply_preprocess:
-        data.content = preprocess(data.content)
-    pdb.set_trace()
+        if apply_preprocess:
+            data.content = preprocess(data.content)
+    else:
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
 
     is_document = data[0].apply(lambda x: x[len(document_id_prefix)] == document_id_prefix)
     documents = data[is_document]
