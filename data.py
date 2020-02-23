@@ -19,14 +19,14 @@ from dask.diagnostics import ProgressBar
 # customs
 import utils
 
-def load_doc_title(path, document_id_prefix='doc', preprocess=True):
+def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
     '''
     load documents and titles
 
     Args:
         path: path to the data file
         document_id_prefix: prefix of document ids
-        preprocess: whether this func should apply preprocess
+        apply_preprocess: whether this func should apply preprocess
 
     Returns:
         tuple of dicts: documents, titles
@@ -35,19 +35,45 @@ def load_doc_title(path, document_id_prefix='doc', preprocess=True):
     data = pd.read_json(path)
     data.columns = 'id', 'content'
 
-    tqdm.pandas(desc='normalize')
-    data.content = data.content.progress_apply(utils.normalize_string)
-
-    with ProgressBar():
-        data.content = dd.from_pandas(data.content, npartitions=cpu_count() * 8)\
-            .apply(utils.split2words, meta=('content', 'object'))\
-            .compute(scheduler='processes')
+    if apply_preprocess:
+        data.content = preprocess(data.content)
     pdb.set_trace()
 
     is_document = data[0].apply(lambda x: x[len(document_id_prefix)] == document_id_prefix)
     documents = data[is_document]
     titles = data[~is_document]
     return documents, titles
+
+
+def preprocess(series, npartitions=None):
+    '''
+    preprocess documents.
+    1. normalize
+    2. split to words
+
+    Args:
+        series: pd.Series of documents
+        npartitions: the number of partitions to split
+            None: auto
+
+    Returns:
+        series
+    '''
+    if npartitions is None:
+        npartitions = cpu_count() * 4
+
+    print('normalize')
+    with ProgressBar():
+        series = dd.from_pandas(series, npartitions=npartitions)\
+            .apply(utils.normalize_string, meta=series)\
+            .compute(scheduler='processes')
+
+    print('split to words')
+    with ProgressBar():
+        series = dd.from_pandas(series, npartitions=npartitions)\
+            .apply(utils.split2words, meta=('content', 'object'))\
+            .compute(scheduler='processes')
+    return series
 
 
 def load_train(path):
