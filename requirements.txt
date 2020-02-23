@@ -1,5 +1,10 @@
+dask['dataframe']
+fsspec==0.6.2
+gensim==3.8.1
 jaconv==0.2.4
 mecab==0.996.2
 pandas==1.0.1
+partd==1.1.0
 pip-chill==0.1.8
 tensorflow==2.1.0
+tqdm==4.43.0
