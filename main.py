@@ -8,6 +8,7 @@ import argparse
 import pdb
 import json
 import pickle
+import logging
 
 # external
 import pandas as pd
@@ -17,7 +18,10 @@ from tensorflow.keras import Model
 # customs
 import data
 import engine
+import utils
 
+
+# logging.basicConfig(level=logging.INFO)
 
 def main(
     data_path,
@@ -47,8 +51,20 @@ def main(
     val_data = data.load_val(val_data_path)
     test_data = data.load_test(test_data_path)
 
+    # convert to corpus
+    dictionary = utils.make_dictionary(documents.content)
+    documents['bow'] = utils.make_corpus(documents.content, dictionary)
+    titles['bow'] = utils.make_corpus(titles.content, dictionary)
+
     # train
-    model = engine.train(train_data, val_data, output_path, documents, titles)
+    model = engine.train(
+        train_data,
+        val_data,
+        output_path,
+        documents,
+        titles,
+        dictionary,
+    )
 
     # inference
     prediciton = engine.predict(model, test_data, documents, titles)
