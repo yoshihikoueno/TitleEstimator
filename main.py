@@ -48,10 +48,10 @@ def main(
     test_data = data.load_test(test_data_path)
 
     # train
-    model = engine.train(train_data, val_data, output_path)
+    model = engine.train(train_data, val_data, output_path, documents, titles)
 
     # inference
-    prediciton = engine.predict(model, test_data)
+    prediciton = engine.predict(model, test_data, documents, titles)
     prediciton_output = os.path.join(output_path, prediction_name)
     data.dump_prediction(prediciton, prediciton_output)
     return
