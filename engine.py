@@ -11,11 +11,13 @@ from multiprocessing import cpu_count
 
 # external
 import pandas as pd
-import tensorflow as tf
-from tensorflow.keras import Model
 from gensim.models.doc2vec import Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
 from gensim.models import LdaModel
+from gensim.models.callbacks import CallbackAny2Vec
+from gensim.models.callbacks import Callback
+from gensim.models.callbacks import CoherenceMetric
+from gensim.models.callbacks import ConvergenceMetric
 
 # customs
 import utils
@@ -30,7 +32,9 @@ def train(
     dictionary,
     num_topics=1000,
     iterations=400,
-    eval_every=None,
+    chunksize=2000,
+    passes=20,
+    eval_every=1,
 ):
     '''
     train/val a model and save the trained model.
@@ -57,11 +61,15 @@ def train(
         eta='auto',
         iterations=iterations,
         num_topics=num_topics,
+        passes=passes,
+        chunksize=chunksize,
         eval_every=eval_every,
         callbacks=[
-            utils.EpochSaver(output_path),
-            utils.EpochLogger(log_start=True),
-            utils.SupervisedEvalute(val_data, documents, titles)
+            # utils.EpochSaver(output_path),
+            # utils.EpochLogger(log_start=True),
+            # utils.SupervisedEvalute(val_data, documents, titles)
+            # CoherenceMetric(corpus=documents.bow, logger='shell'),
+            # ConvergenceMetric(logger='shell'),
         ],
     )
     return model
