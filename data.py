@@ -12,14 +12,18 @@ from multiprocessing import cpu_count
 # external
 from tqdm import tqdm
 import pandas as pd
-import tensorflow as tf
 import dask.dataframe as dd
 from dask.diagnostics import ProgressBar
 
 # customs
 import utils
 
-def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
+def load_doc_title(
+    path,
+    document_id_prefix='doc',
+    apply_preprocess=True,
+    cache_path=None,
+):
     '''
     load documents and titles
 
@@ -28,22 +32,29 @@ def load_doc_title(path, document_id_prefix='doc', apply_preprocess=True):
         document_id_prefix: prefix of document ids
         apply_preprocess: whether this func should apply preprocess
             this will ignored when path points to a pickle file
+        cache_path: where to save/load cache
 
     Returns:
         tuple of dicts: documents, titles
         key: id, val: content
     '''
-    if os.path.splitext(path)[-1] != '.pickle':
-        data = pd.read_json(path)
-        data.columns = 'id', 'content'
-
-        if apply_preprocess:
-            data.content = preprocess(data.content)
-    else:
+    if cache_path is not None and os.path.exists(cache_path):
         with open(path, 'rb') as f:
             data = pickle.load(f)
+    else:
+        data = pd.read_json(path)
+        data.columns = 'id', 'content'
+        data = data.set_index('id')
+        if apply_preprocess:
+            data.content = preprocess(data.content)
+        if cache_path is not None:
+            os.makedirs(cache_path, exist_ok=True)
+            with open(cache_path, 'wb') as f:
+                pickle.dump(data, f)
 
-    is_document = data.id.apply(lambda x: x[:len(document_id_prefix)] == document_id_prefix)
+    is_document = data.index.to_series().apply(
+        lambda x: x[:len(document_id_prefix)] == document_id_prefix
+    )
     documents = data[is_document]
     titles = data[~is_document]
     return documents, titles
@@ -66,17 +77,17 @@ def preprocess(series, npartitions=None):
     if npartitions is None:
         npartitions = cpu_count() * 4
 
-    print('normalize')
+    print('preprocess')
     with ProgressBar():
         series = dd.from_pandas(series, npartitions=npartitions)\
             .apply(utils.normalize_string, meta=series)\
+            .apply(utils.remove_white, meta=series)\
+            .apply(utils.remove_symbol, meta=series)\
+            .apply(utils.remove_digit, meta=series)\
+            .apply(utils.split2words, meta=('content', 'object'))\
+            .apply(utils.remove_too_short, meta=('content', 'object'))\
             .compute(scheduler='processes')
 
-    print('split to words')
-    with ProgressBar():
-        series = dd.from_pandas(series, npartitions=npartitions)\
-            .apply(utils.split2words, meta=('content', 'object'))\
-            .compute(scheduler='processes')
     return series
 
 

@@ -7,10 +7,11 @@ import pdb
 import json
 import pickle
 from multiprocessing import cpu_count
+import unicodedata
+import re
 
 # external
 import MeCab
-import tensorflow as tf
 import pandas as pd
 import jaconv
 from gensim.models.doc2vec import Doc2Vec
@@ -22,19 +23,75 @@ from gensim.models.callbacks import Callback
 from gensim.corpora import Dictionary
 
 
-def split2words(sentence):
+def split2words(sentence, lemmatize=True):
     '''
     split a sentence to words
 
     Args:
         sentence: input sentence
+        lemmatize: whether this func should lemmatize words
 
     Returns:
         list of words
     '''
     tagger = MeCab.Tagger()
     tokens = tagger.parse(sentence).splitlines()[:-1]
-    words = list(map(lambda x: x.split('\t')[0], tokens))
+    if lemmatize:
+        try:
+            words = list(map(lambda x: x.split('\t')[1].split(',')[6], tokens))
+        except:
+            print(list(filter(lambda token: len(token.split('\t')) == 1, tokens)))
+            print(f'last: {tokens[-1]}')
+            for token in tokens:
+                print()
+                print(token)
+                print(token.split('\t')[1])
+                print(token.split('\t')[1].split(','))
+            raise
+    else:
+        words = list(map(lambda x: x.split('\t')[0], tokens))
+    return words
+
+
+def remove_white(string):
+    '''
+    remove white spaces
+    '''
+    string = re.sub(r'\s', '', string)
+    return string
+
+
+def remove_digit(string):
+    '''
+    remove digits
+    '''
+    string = re.sub(r'\d', '', string)
+    return string
+
+
+def is_symbol(x):
+    '''
+    return if a char is symbols
+    '''
+    return unicodedata.category(x)[0] in 'PSZ'
+
+
+def remove_symbol(string):
+    '''
+    remove symbol from string
+    '''
+    string = ''.join(filter(lambda x: not is_symbol(x), string))
+    return string
+
+
+def remove_too_short(words):
+    '''
+    remove too short words
+    '''
+    words = list(filter(
+        lambda x: not re.match(r'^[あ-ん]{1,2}$', x),
+        words,
+    ))
     return words
 
 
@@ -83,20 +140,29 @@ def to_tagged_doc(doc):
     return tagged
 
 
-def make_dictionary(docs, no_above=.5):
+def make_dictionary(docs, no_above=.5, cache_path=None):
     '''
     make corpus
 
     Args:
         docs (series): a series that contains list of words
         no_above: words that appear in more than `no_above`% documents are filtered out
+        cache_path: path to the dictionary file
 
     Returns:
         dictionary
     '''
-    dictionary = Dictionary(docs.tolist())
-    dictionary.filter_extremes(no_above=no_above)
+    if cache_path is not None and os.path.exists(cache_path):
+        print('found dictionary cache. loading...')
+        dictionary = Dictionary.load(cache_path)
+    else:
+        dictionary = Dictionary(docs.tolist())
+        dictionary.filter_extremes(no_above=no_above)
+
     dictionary[0]
+    if cache_path is not None:
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        dictionary.save(cache_path)
     return dictionary
 
 
