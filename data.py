@@ -86,6 +86,7 @@ def preprocess(series, npartitions=None):
             .apply(utils.remove_digit, meta=series)\
             .apply(utils.split2words, meta=('content', 'object'))\
             .apply(utils.remove_too_short, meta=('content', 'object'))\
+            .apply(utils.remove_stopwords, meta=('content', 'object'))\
             .compute(scheduler='processes')
 
     return series
