@@ -130,5 +130,5 @@ def dump_prediction(prediction, path):
     if not isinstance(prediction, pd.DataFrame):
         raise NotImplementedError('Implement conversion to DF')
 
-    prediction.to_json(path)
+    prediction.to_json(path, orient='records')
     return

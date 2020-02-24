@@ -29,6 +29,7 @@ def main(
     output_path,
     prediction_name='suggestion.json',
     cache_dir=None,
+    model_type='lda',
 ):
     '''
     train a model and make a prediction
@@ -41,6 +42,7 @@ def main(
         output_path: path to the output dir
         prediction_name: the name of prediction output file
         cache_dir: where to save cache
+        model: which model to use
 
     Returns:
         None
@@ -55,21 +57,27 @@ def main(
     val_data = data.load_val(val_data_path)
     test_data = data.load_test(test_data_path)
 
-    # convert to corpus
-    print('Preparing corpus')
-    dictionary = utils.make_dictionary(
-        documents.content,
-        cache_path=os.path.join(cache_dir, 'dictionary') if cache_dir is not None else None,
-        filter_=False,
-    )
-    documents['bow'] = utils.make_corpus(documents.content, dictionary)
-    titles['bow'] = utils.make_corpus(titles.content, dictionary)
+    # convert to corpus if needed
+    if model_type in ('lda', ):
+        print('Preparing corpus')
+        dictionary = utils.make_dictionary(
+            documents.content,
+            cache_path=os.path.join(cache_dir, 'dictionary') if cache_dir is not None else None,
+            filter_=False,
+        )
+        documents['bow'] = utils.make_corpus(documents.content, dictionary)
+        titles['bow'] = utils.make_corpus(titles.content, dictionary)
     pdb.set_trace()
 
     # train
     print('Training model')
-    model = engine.CustomLDA(documents, titles, dictionary)
-    model = model.train(train_data, val_data, output_path)
+    if model_type == 'lda':
+        model = engine.CustomLDA(documents, titles, dictionary)
+        model = model.train(train_data, val_data, output_path)
+    elif model_type == 'doc2vec':
+        model = engine.CustomDoc2vec(documents, titles)
+        model = model.train(train_data, val_data, output_path)
+    else: raise ValueError(model_type)
     pdb.set_trace()
 
     # inference
@@ -88,6 +96,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_data_path', default='data/test_q.json')
     parser.add_argument('--output_path', default='./temp_output')
     parser.add_argument('--cache_dir', default=None)
+    parser.add_argument('--model_type', default='lda')
 
     args = parser.parse_args()
     main(**vars(args))

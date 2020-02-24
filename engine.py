@@ -10,6 +10,7 @@ import pickle
 from multiprocessing import cpu_count
 
 # external
+from tqdm import tqdm
 import pandas as pd
 from gensim.models.doc2vec import Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
@@ -18,32 +19,136 @@ from gensim.models.callbacks import CallbackAny2Vec
 from gensim.models.callbacks import Callback
 from gensim.models.callbacks import CoherenceMetric
 from gensim.models.callbacks import ConvergenceMetric
+from scipy.spatial import distance
 
 # customs
 import utils
 
-def train_lstm(
-    train_data,
-    val_data,
-    output_path,
-    documents,
-    titles,
-    dictionary,
-):
+
+class CustomDoc2vec:
     '''
-    train lstm
+    custimized doc2vec model
     '''
-    return model
+    def __init__(self, documents, titles, dictionary,):
+        self.documents = documents
+        self.titles = titles
+        self.dictionary = dictionary
+        self.model = None
+        return
+
+    def train(
+        self,
+        train_data,
+        val_data,
+        output_path,
+        vector_size=32,
+        window=2,
+        min_count=0,
+    ):
+        '''
+        train/val a model and save the trained model.
+
+        Args:
+            train_data (DataFrame): training data
+            val_data (DataFrame): validation data
+            output_path: where to save models
+            vector_size: vector dimention size
+            window: window size
+            min_count: lower threshold of excluding words
+
+        Returns:
+            model object
+        '''
+        self.model = Doc2Vec(
+            documents=self.documents.content,
+            vector_size=vector_size,
+            window=window,
+            min_count=min_count,
+        )
+        return self
+
+    def validate(self, data):
+        '''validate this model'''
+        prediction = self.predict(data)
+        mrr = utils.calculate_MRR(prediction)
+        return mrr
+
+    def predict(self, data):
+        '''
+        make a prediction
+
+        Args:
+            data: input data
+
+        Returns:
+            prediction results
+        '''
+        data = data.apply(
+            self.sort_candidates,
+            axis=1,
+        )
+        return data
+
+    def sort_candidates(self, series, log_before=False, log_after=False):
+        '''
+        sort candidate titles contained in series.
+
+        Args:
+            series: pd.Series with index[title_id, candidates]
+            log_before: whether this func should log candidates before sorting
+            log_after: whether this func should log candidates after sorting
+
+        Returns:
+            series
+        '''
+        title_info = self.titles.loc[series.title_id]
+
+        if log_before:
+            print(list(map(
+                lambda doc_id: distance.cosine(
+                    self.model.infer_vector(self.documents.content.loc[doc_id]),
+                    self.model.infer_vector(title_info.content),
+                ),
+                series.candidates,
+            )))
+
+        series.candidates = sorted(
+            series.candidates,
+            key=lambda doc_id: distance.cosine(
+                self.model.infer_vector(self.documents.content.loc[doc_id]),
+                self.model.infer_vector(title_info.content),
+            ),
+        )
+
+        if log_after:
+            print(list(map(
+                lambda doc_id: distance.cosine(
+                    self.model.infer_vector(self.documents.content.loc[doc_id]),
+                    self.model.infer_vector(title_info.content),
+                ),
+                series.candidates,
+            )))
+            print()
+        return series
+
+    def save(self, path):
+        '''save'''
+        self.model.save(path)
+        return self
+
+    def laod(self, path):
+        '''load'''
+        self.model = Doc2Vec.load(path)
+        return self
 
 
 class CustomLDA:
     '''
     custimized lda model
     '''
-    def __init__(self, documents, titles, dictionary,):
+    def __init__(self, documents, titles):
         self.documents = documents
         self.titles = titles
-        self.dictionary = dictionary
         self.model = None
         return
 
@@ -65,9 +170,6 @@ class CustomLDA:
             train_data (DataFrame): training data
             val_data (DataFrame): validation data
             output_path: where to save models
-            documents: mapping of doc ID to doc content
-            titiles: mapping of titles ID to title content
-            dictionary: gensim.Dictionary object
             num_topics: the number of topics
             iterations: train iterations
             eval_every: eval model every `eval_every` iterations
@@ -102,20 +204,28 @@ class CustomLDA:
         mrr = utils.calculate_MRR(prediction)
         return mrr
 
-    def predict(self, data):
+    def predict(self, data, progress=True):
         '''
         make a prediction
 
         Args:
             data: input data
+            progress: whether progress bar should be displayed
 
         Returns:
             prediction results
         '''
-        data = data.apply(
-            self.sort_candidates,
-            axis=1,
-        )
+        if progress:
+            tqdm.pandas('predicion')
+            data = data.progress_apply(
+                self.sort_candidates,
+                axis=1,
+            )
+        else:
+            data = data.apply(
+                self.sort_candidates,
+                axis=1,
+            )
         return data
 
     def sort_candidates(self, series, log_before=False, log_after=False):
@@ -124,9 +234,6 @@ class CustomLDA:
 
         Args:
             series: pd.Series with index[title_id, candidates]
-            docs: pd.DataFrame with columns[content, bow]
-            titles: pd.DataFrame with columns[content, bow]
-            model: gensim topic model
             log_before: whether this func should log candidates before sorting
             log_after: whether this func should log candidates after sorting
 
@@ -162,3 +269,13 @@ class CustomLDA:
             )))
             print()
         return series
+
+    def save(self, path):
+        '''save'''
+        self.model.save(path)
+        return self
+
+    def laod(self, path):
+        '''load'''
+        self.model = LdaModel.load(path)
+        return self
