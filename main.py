@@ -60,9 +60,11 @@ def main(
     dictionary = utils.make_dictionary(
         documents.content,
         cache_path=os.path.join(cache_dir, 'dictionary') if cache_dir is not None else None,
+        filter_=False,
     )
     documents['bow'] = utils.make_corpus(documents.content, dictionary)
     titles['bow'] = utils.make_corpus(titles.content, dictionary)
+    pdb.set_trace()
 
     # train
     print('Training model')

@@ -160,7 +160,7 @@ def to_tagged_doc(doc):
     return tagged
 
 
-def make_dictionary(docs, no_above=.5, cache_path=None):
+def make_dictionary(docs, no_above=.5, cache_path=None, filter_=True):
     '''
     make corpus
 
@@ -177,7 +177,7 @@ def make_dictionary(docs, no_above=.5, cache_path=None):
         dictionary = Dictionary.load(cache_path)
     else:
         dictionary = Dictionary(docs.tolist())
-        dictionary.filter_extremes(no_above=no_above)
+        if filter_: dictionary.filter_extremes(no_above=no_above)
 
     dictionary[0]
     if cache_path is not None:
@@ -275,7 +275,7 @@ class SupervisedEvalute(Callback):
 def calculate_MRR(val_data):
     '''calculate MRR'''
     data = val_data.apply(
-        lambda series: 1 / series.candidates.index(series.ans_id),
+        lambda series: 1 / (series.candidates.index(series.ans_id) + 1),
         axis=1,
     )
     mrr = data.mean()
@@ -295,15 +295,30 @@ def sort_candidates(series, docs, titles, model):
     Returns:
         series
     '''
-    title_info = docs.loc[series.title_id]
+    title_info = titles.loc[series.title_id]
 
+    # print(list(map(
+    #     lambda doc_id: get_coherence(
+    #         model[docs.loc[doc_id].bow],
+    #         title_info.bow
+    #     ),
+    #     series.candidates,
+    # )))
     series.candidates = sorted(
         series.candidates,
-        key=lambda doc_id: get_coherence(
+        key=lambda doc_id: -get_coherence(
             model[docs.loc[doc_id].bow],
             title_info.bow
         ),
     )
+    print(list(map(
+        lambda doc_id: get_coherence(
+            model[docs.loc[doc_id].bow],
+            title_info.bow
+        ),
+        series.candidates,
+    )))
+    print()
     return series
 
 
