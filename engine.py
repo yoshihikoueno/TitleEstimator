@@ -20,6 +20,8 @@ from gensim.models.callbacks import Callback
 from gensim.models.callbacks import CoherenceMetric
 from gensim.models.callbacks import ConvergenceMetric
 from scipy.spatial import distance
+import dask.dataframe as dd
+from dask.diagnostics import ProgressBar
 
 # customs
 import utils
@@ -29,10 +31,9 @@ class CustomDoc2vec:
     '''
     custimized doc2vec model
     '''
-    def __init__(self, documents, titles, dictionary,):
+    def __init__(self, documents, titles):
         self.documents = documents
         self.titles = titles
-        self.dictionary = dictionary
         self.model = None
         return
 
@@ -44,6 +45,7 @@ class CustomDoc2vec:
         vector_size=32,
         window=2,
         min_count=0,
+        epochs=5,
     ):
         '''
         train/val a model and save the trained model.
@@ -55,15 +57,20 @@ class CustomDoc2vec:
             vector_size: vector dimention size
             window: window size
             min_count: lower threshold of excluding words
+            epochs: the number of epochs to train
 
         Returns:
             model object
         '''
         self.model = Doc2Vec(
-            documents=self.documents.content,
+            documents=utils.to_tagged_docs(self.documents) + utils.to_tagged_docs(self.titles),
             vector_size=vector_size,
             window=window,
             min_count=min_count,
+            epochs=epochs,
+            callbacks=[
+                utils.SampleEvaluator(val_data, 100)
+            ],
         )
         return self
 
@@ -73,20 +80,24 @@ class CustomDoc2vec:
         mrr = utils.calculate_MRR(prediction)
         return mrr
 
-    def predict(self, data):
+    def predict(self, data, multiprocessing=True):
         '''
         make a prediction
 
         Args:
             data: input data
+            multiprocessing: should use multi-threding
 
         Returns:
             prediction results
         '''
-        data = data.apply(
-            self.sort_candidates,
-            axis=1,
-        )
+        if multiprocessing:
+            with ProgressBar():
+                data = dd.from_pandas(data, npartitions=cpu_count() * 4)\
+                    .apply(self.sort_candidates, axis=1, meta=data)\
+                    .compute(scheduler='processes')
+        else:
+            data = data.apply(self.sort_candidates, axis=1)
         return data
 
     def sort_candidates(self, series, log_before=False, log_after=False):
@@ -136,7 +147,7 @@ class CustomDoc2vec:
         self.model.save(path)
         return self
 
-    def laod(self, path):
+    def load(self, path):
         '''load'''
         self.model = Doc2Vec.load(path)
         return self
@@ -146,9 +157,10 @@ class CustomLDA:
     '''
     custimized lda model
     '''
-    def __init__(self, documents, titles):
+    def __init__(self, documents, titles, dictionary):
         self.documents = documents
         self.titles = titles
+        self.dictionary = dictionary
         self.model = None
         return
 
@@ -275,7 +287,7 @@ class CustomLDA:
         self.model.save(path)
         return self
 
-    def laod(self, path):
+    def load(self, path):
         '''load'''
         self.model = LdaModel.load(path)
         return self

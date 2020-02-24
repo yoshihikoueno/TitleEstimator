@@ -143,7 +143,7 @@ def to_tagged_docs(docs):
         tagged_docs = dd.from_pandas(docs, npartitions=cpu_count() * 4)\
             .apply(to_tagged_doc, axis=1)\
             .compute()
-    return tagged_docs
+    return tagged_docs.tolist()
 
 
 def to_tagged_doc(doc):
@@ -156,7 +156,7 @@ def to_tagged_doc(doc):
     Returns:
         TaggedDocument
     '''
-    tagged = TaggedDocument(words=doc.content, tags=[doc.id])
+    tagged = TaggedDocument(words=doc.content, tags=[doc.name])
     return tagged
 
 
@@ -199,6 +199,25 @@ def make_corpus(docs, dictionary):
     '''
     corpus = list(map(dictionary.doc2bow, docs))
     return corpus
+
+
+class SampleEvaluator(CallbackAny2Vec):
+    '''Callback to evaluate a model after each epoch.'''
+
+    def __init__(self, val_data, nsample):
+        '''
+        Args:
+            val_data: validation data
+        '''
+        self.val_data = val_data
+        self.epoch = 0
+        self.nsample = nsample
+        self.logger = None
+
+    def on_epoch_end(self, model):
+        results = model.validate(self.val_data.sample(self.nsample))
+        print(f'SampleValidation {results}  - Epoch {self.epoch}')
+        self.epoch += 1
 
 
 class EpochSaver(Callback):
