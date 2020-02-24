@@ -47,7 +47,10 @@ def main(
     '''
     # load data
     print('Loading data')
-    documents, titles = data.load_doc_title(data_path)
+    documents, titles = data.load_doc_title(
+        data_path,
+        cache_path=os.path.join(cache_dir, 'preproccessed') if cache_dir is not None else None,
+    )
     train_data = data.load_train(train_data_path)
     val_data = data.load_val(val_data_path)
     test_data = data.load_test(test_data_path)
@@ -56,7 +59,7 @@ def main(
     print('Preparing corpus')
     dictionary = utils.make_dictionary(
         documents.content,
-        cache_path=os.path.join(cache_dir, 'dictionary'),
+        cache_path=os.path.join(cache_dir, 'dictionary') if cache_dir is not None else None,
     )
     documents['bow'] = utils.make_corpus(documents.content, dictionary)
     titles['bow'] = utils.make_corpus(titles.content, dictionary)
@@ -87,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_data_path', default='data/val_q.json')
     parser.add_argument('--test_data_path', default='data/test_q.json')
     parser.add_argument('--output_path', default='./temp_output')
-    parser.add_argument('--cache_dir', default='./data')
+    parser.add_argument('--cache_dir', default=None)
 
     args = parser.parse_args()
     main(**vars(args))

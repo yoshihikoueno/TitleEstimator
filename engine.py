@@ -31,9 +31,9 @@ def train(
     titles,
     dictionary,
     num_topics=1000,
-    iterations=400,
+    iterations=100,
     chunksize=2000,
-    passes=20,
+    passes=1,
     eval_every=1,
 ):
     '''
