@@ -68,18 +68,13 @@ def main(
 
     # train
     print('Training model')
-    model = engine.train(
-        train_data,
-        val_data,
-        output_path,
-        documents,
-        titles,
-        dictionary,
-    )
+    model = engine.CustomLDA(documents, titles, dictionary)
+    model = model.train(train_data, val_data, output_path)
     pdb.set_trace()
 
     # inference
-    prediction = engine.predict(model, test_data, documents, titles)
+    prediction = model.predict(test_data)
+    pdb.set_trace()
     prediction_output = os.path.join(output_path, prediction_name)
     data.dump_prediction(prediction, prediction_output)
     return

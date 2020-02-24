@@ -248,30 +248,6 @@ class EpochLogger(Callback):
         self.epoch += 1
 
 
-class SupervisedEvalute(Callback):
-    '''
-    callback to evaluate model based on provided label data
-    '''
-    def __init__(self, val_data, docs, titles):
-        self.val_data = val_data
-        self.docs = docs
-        self.titles = titles
-        self.logger = None
-        return
-
-    def on_epoch_end(self, model):
-        val_results = self.val_data.apply(
-            sort_candidates,
-            docs=self.docs,
-            titles=self.titles,
-            model=model,
-            axis=1,
-        )
-        mrr = calculate_MRR(val_results)
-        print(f'MRR: {mrr}')
-        return
-
-
 def calculate_MRR(val_data):
     '''calculate MRR'''
     data = val_data.apply(
@@ -280,46 +256,6 @@ def calculate_MRR(val_data):
     )
     mrr = data.mean()
     return mrr
-
-
-def sort_candidates(series, docs, titles, model):
-    '''
-    sort candidate titles contained in series.
-
-    Args:
-        series: pd.Series with index[title_id, candidates]
-        docs: pd.DataFrame with columns[content, bow]
-        titles: pd.DataFrame with columns[content, bow]
-        model: gensim topic model
-
-    Returns:
-        series
-    '''
-    title_info = titles.loc[series.title_id]
-
-    # print(list(map(
-    #     lambda doc_id: get_coherence(
-    #         model[docs.loc[doc_id].bow],
-    #         title_info.bow
-    #     ),
-    #     series.candidates,
-    # )))
-    series.candidates = sorted(
-        series.candidates,
-        key=lambda doc_id: -get_coherence(
-            model[docs.loc[doc_id].bow],
-            title_info.bow
-        ),
-    )
-    print(list(map(
-        lambda doc_id: get_coherence(
-            model[docs.loc[doc_id].bow],
-            title_info.bow
-        ),
-        series.candidates,
-    )))
-    print()
-    return series
 
 
 def get_coherence(topic, title):
