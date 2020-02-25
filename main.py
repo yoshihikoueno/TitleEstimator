@@ -67,7 +67,6 @@ def main(
         )
         documents['bow'] = utils.make_corpus(documents.content, dictionary)
         titles['bow'] = utils.make_corpus(titles.content, dictionary)
-    pdb.set_trace()
 
     # train
     print('Training model')
@@ -76,28 +75,56 @@ def main(
         model = model.train(train_data, val_data, output_path)
     elif model_type == 'doc2vec':
         model = engine.CustomDoc2vec(documents, titles)
-        pdb.set_trace()
         model = model.train(train_data, val_data, output_path)
     else: raise ValueError(model_type)
-    pdb.set_trace()
 
     # inference
     prediction = model.predict(test_data)
-    pdb.set_trace()
     prediction_output = os.path.join(output_path, prediction_name)
     data.dump_prediction(prediction, prediction_output)
     return
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--data_path', default='data/exam_data1.json')
-    parser.add_argument('--train_data_path', default='data/train_q.json')
-    parser.add_argument('--val_data_path', default='data/val_q.json')
-    parser.add_argument('--test_data_path', default='data/test_q.json')
-    parser.add_argument('--output_path', default='./temp_output')
-    parser.add_argument('--cache_dir', default=None)
-    parser.add_argument('--model_type', default='lda')
+    parser = argparse.ArgumentParser(
+        prog='python3 main.py',
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        '--data_path', default='data/exam_data1.json',
+        help='Path to the doc/title data file.\n'
+        'Default: %(default)s'
+    )
+    parser.add_argument(
+        '--train_data_path', default='data/train_q.json',
+        help='Path to the train data file.\n'
+        'Default: %(default)s'
+    )
+    parser.add_argument(
+        '--val_data_path', default='data/val_q.json',
+        help='Path to the validation data file.\n'
+        'Default: %(default)s'
+    )
+    parser.add_argument(
+        '--test_data_path', default='data/test_q.json',
+        help='Path to the test data file.\n'
+        'Default: %(default)s'
+    )
+    parser.add_argument(
+        '--output_path', default='./temp_output',
+        help='Path to the model_output dir.\n'
+        'Default: %(default)s'
+    )
+    parser.add_argument(
+        '--cache_dir', default=None,
+        help='Wehre to store/load the cache directory.\n'
+        'Default: disable cache'
+    )
+    parser.add_argument(
+        '--model_type', default='lda',
+        help='Mdoel selection.. [lda, doc2vec]\n'
+        'Default: %(default)s'
+    )
 
     args = parser.parse_args()
     main(**vars(args))
