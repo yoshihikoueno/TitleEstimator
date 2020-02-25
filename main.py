@@ -76,6 +76,7 @@ def main(
         model = model.train(train_data, val_data, output_path)
     elif model_type == 'doc2vec':
         model = engine.CustomDoc2vec(documents, titles)
+        pdb.set_trace()
         model = model.train(train_data, val_data, output_path)
     else: raise ValueError(model_type)
     pdb.set_trace()

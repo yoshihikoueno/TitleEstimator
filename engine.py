@@ -46,6 +46,7 @@ class CustomDoc2vec:
         window=2,
         min_count=0,
         epochs=5,
+        save_every=None,
     ):
         '''
         train/val a model and save the trained model.
@@ -58,6 +59,8 @@ class CustomDoc2vec:
             window: window size
             min_count: lower threshold of excluding words
             epochs: the number of epochs to train
+            save_every: save every N epochs
+                None: do not save
 
         Returns:
             model object
@@ -69,14 +72,23 @@ class CustomDoc2vec:
             min_count=min_count,
             epochs=epochs,
             callbacks=[
-                utils.SampleEvaluator(val_data, 100)
+                utils.SampleEvaluator(val_data, 100, self),
+                utils.EpochSaver(output_path, save_every)
             ],
         )
         return self
 
-    def validate(self, data):
+    def replica(self, model=None):
+        '''
+        create a replica
+        '''
+        copied = CustomDoc2vec(self.documents, self.titles)
+        copied.model = model
+        return copied
+
+    def validate(self, data, concurrent=True):
         '''validate this model'''
-        prediction = self.predict(data)
+        prediction = self.predict(data, multiprocessing=concurrent)
         mrr = utils.calculate_MRR(prediction)
         return mrr
 
@@ -97,7 +109,8 @@ class CustomDoc2vec:
                     .apply(self.sort_candidates, axis=1, meta=data)\
                     .compute(scheduler='processes')
         else:
-            data = data.apply(self.sort_candidates, axis=1)
+            tqdm.pandas()
+            data = data.progress_apply(self.sort_candidates, axis=1)
         return data
 
     def sort_candidates(self, series, log_before=False, log_after=False):
@@ -113,13 +126,15 @@ class CustomDoc2vec:
             series
         '''
         title_info = self.titles.loc[series.title_id]
+        if series.title_id in self.model.docvecs:
+            title_vec = self.model.docvecs[title_info.content]
+            pass
+        else:
+            title_vec = self.model.infer_vector(title_info.content)
 
         if log_before:
             print(list(map(
-                lambda doc_id: distance.cosine(
-                    self.model.infer_vector(self.documents.content.loc[doc_id]),
-                    self.model.infer_vector(title_info.content),
-                ),
+                lambda doc_id: distance.cosine(self.model.docvecs[doc_id], title_vec),
                 series.candidates,
             )))
 

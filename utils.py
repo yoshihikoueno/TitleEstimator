@@ -204,7 +204,7 @@ def make_corpus(docs, dictionary):
 class SampleEvaluator(CallbackAny2Vec):
     '''Callback to evaluate a model after each epoch.'''
 
-    def __init__(self, val_data, nsample):
+    def __init__(self, val_data, nsample, parent_model):
         '''
         Args:
             val_data: validation data
@@ -212,42 +212,41 @@ class SampleEvaluator(CallbackAny2Vec):
         self.val_data = val_data
         self.epoch = 0
         self.nsample = nsample
+        self.parent_model = parent_model
         self.logger = None
 
     def on_epoch_end(self, model):
-        results = model.validate(self.val_data.sample(self.nsample))
+        model = self.parent_model.replica(model)
+        results = model.validate(self.val_data.sample(self.nsample), concurrent=False)
         print(f'SampleValidation {results}  - Epoch {self.epoch}')
         self.epoch += 1
 
 
-class EpochSaver(Callback):
+class EpochSaver(CallbackAny2Vec):
     '''Callback to save model after each epoch.'''
 
-    def __init__(self, path, prefix=None):
+    def __init__(self, path, interval=None):
         '''
         Args:
             path: where to save models
-            prefix: model file prefix
+            interval: save interval
+                None: disable this callback
         '''
+        self.dirname = os.path.dirname(path)
         self.path = path
-        self.prefix = prefix
         self.epoch = 0
+        self.interval = interval
         self.logger = None
 
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(self.dirname):
+            os.makedirs(self.dirname)
 
     def on_epoch_end(self, model):
-        model.save(self._get_output_path())
+        if (self.interval is not None) and (self.epoch % self.interval == 0):
+            save_path = f'{self.path}_{self.epoch}'
+            model.save(save_path)
+            print(f'AutoSaved model to {save_path} - Epoch {self.epoch}')
         self.epoch += 1
-
-    def _get_output_path(self):
-        if self.prefix is not None:
-            filename = f'{self.prefix}_epoch{self.epoch}.model'
-        else:
-            filename = f'epoch{self.epoch}.model'
-        output_path = os.path.join(self.path, filename)
-        return output_path
 
 
 class EpochLogger(Callback):
